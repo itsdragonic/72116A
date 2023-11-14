@@ -126,13 +126,13 @@ int drivePID() {
 
     /////////////////////////////////////////////////////////////////
 
-    LFront.spin(forward, -lateralMotorPower + turnMotorPower, voltageUnits::volt);
-    LMiddle.spin(forward, lateralMotorPower + turnMotorPower, voltageUnits::volt);
-    LRear.spin(forward, lateralMotorPower + turnMotorPower, voltageUnits::volt);
+    LFront.spin(forward, lateralMotorPower - turnMotorPower, voltageUnits::volt);
+    LMiddle.spin(forward, lateralMotorPower - turnMotorPower, voltageUnits::volt);
+    LRear.spin(forward, lateralMotorPower - turnMotorPower, voltageUnits::volt);
 
-    RFront.spin(forward, lateralMotorPower + turnMotorPower, voltageUnits::volt);
-    RMiddle.spin(forward, -lateralMotorPower + turnMotorPower, voltageUnits::volt);
-    RRear.spin(forward, -lateralMotorPower + turnMotorPower, voltageUnits::volt);
+    RFront.spin(reverse, lateralMotorPower + turnMotorPower, voltageUnits::volt);
+    RMiddle.spin(reverse, lateralMotorPower + turnMotorPower, voltageUnits::volt);
+    RRear.spin(reverse, lateralMotorPower + turnMotorPower, voltageUnits::volt);
 
     prevError = error;
     turnPrevError = turnError;
@@ -313,11 +313,11 @@ void usercontrol(void) {
     double forwardVolts = forwardVal * 0.12 * (1 - (std::abs(turnVolts)/12.0) * turnImportance);
 
     // Motors
-    LFront.spin(reverse, forwardVolts - turnVolts, voltageUnits::volt);
+    LFront.spin(forward, forwardVolts - turnVolts, voltageUnits::volt);
     LMiddle.spin(forward, forwardVolts - turnVolts, voltageUnits::volt);
     LRear.spin(forward, forwardVolts - turnVolts, voltageUnits::volt);
 
-    RFront.spin(forward, forwardVolts + turnVolts, voltageUnits::volt);
+    RFront.spin(reverse, forwardVolts + turnVolts, voltageUnits::volt);
     RMiddle.spin(reverse, forwardVolts + turnVolts, voltageUnits::volt);
     RRear.spin(reverse, forwardVolts + turnVolts, voltageUnits::volt);
 
