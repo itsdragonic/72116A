@@ -23,8 +23,8 @@ motor LRear = motor(vex::PORT5);
 motor RFront = motor(vex::PORT4);
 motor RMiddle = motor(vex::PORT2);
 motor RRear = motor(vex::PORT1);
-digital_out wings = digital_out(Brain.ThreeWirePort.G);
-digital_out jammer = digital_out(Brain.ThreeWirePort.H);
+digital_out wings = digital_out(Brain.ThreeWirePort.A);
+digital_out jammer = digital_out(Brain.ThreeWirePort.B);
 inertial Inertial = inertial(PORT11);
 
 motor ArmMotor = motor(vex::PORT17);
@@ -33,6 +33,12 @@ motor BarLift = motor(vex::PORT16);
 void pre_auton(void) {
   ArmMotor.setStopping(hold);
   BarLift.setStopping(hold);
+
+  Inertial.calibrate();
+  // Wait for calibration to finish
+  while (Inertial.isCalibrating()) {
+    vex::task::sleep(50);
+  }
 }
 
 void stopAllMotors() {
@@ -177,7 +183,7 @@ void PIDturn(double degree) {
     wait(70, msec);
 
     if (std::abs(leftTurnVolts) < terminationThreshold) {
-      if (strikes >= 8) {
+      if (strikes >= 200) {
         strikes = 0;
         break;
       }
@@ -185,6 +191,8 @@ void PIDturn(double degree) {
     }
   }
 
+  Controller1.Screen.newLine();
+  Controller1.Screen.print(Inertial.rotation());
   leftDrivePID.reset();
   rightDrivePID.reset();
   stopAllMotors();
@@ -192,100 +200,100 @@ void PIDturn(double degree) {
 }
 
 void autonomous(void) {
-  int whatCase = 1;
+  int whatCase = 2;
   int def = 60;
   wings.set(false);
   jammer.set(true);
-  
-  Inertial.calibrate();
-  // Wait for calibration to finish
-  while (Inertial.isCalibrating()) {
-    vex::task::sleep(50);
-  }
 
   switch (whatCase) {
     // Same side: safe case
     case 1:
-      move("reverse", def, 1.2);
-      PIDturn(-25.0);
+      move("reverse", def, 1.0);
+      PIDturn(35.0);
       move("reverse", def, 0.9);
+      move("forward", def, 0.6);
+      PIDturn(40.0);
+      move("reverse", def, 0.95);
       move("forward", def, 0.7);
-      PIDturn(-30.0);
-      move("reverse", def, 1);
-      PIDturn(-220.0);
-      move("reverse", def, 0.7);
-      break;
-
-    // Opposite side: safe case
-    case 2:
-      move("reverse", def, 1.28);
-      PIDturn(25.0);
-      move("reverse", def, 0.64);
-      move("forward", def, 0.55);
-      PIDturn(30.0);
-      move("reverse", def, 0.7);
-      PIDturn(200.0);
-      move("reverse", def, 0.7);
-      BarLift.spin(forward, 5.0, voltageUnits::volt);
+      PIDturn(230.0);
+      BarLift.spin(forward, 12.0, voltageUnits::volt);
       wait(2, sec);
 
       BarLift.stop();
       break;
 
-    // Autonomous Skills (Blue Bar)
-    case 3:
-      BarLift.spin(forward, 5.0, voltageUnits::volt);
-      wait(1.3, sec);
-
-      BarLift.stop();
-      ArmMotor.spin(forward, -8.0, voltageUnits::volt);
-      wait(10, sec);
-      ArmMotor.stop();
-      BarLift.setStopping(coast);
-      ArmMotor.setStopping(coast);
-
-      move("forward", def, 1.4);
+    // Opposite side: safe case
+    case 2:
+      move("reverse", def, 1.0);
       PIDturn(-35.0);
-      move("forward", 100, 1.86);
-      PIDturn(33.0);
-      wings.set(true);
-      move("forward", def, 0.8);
-      break;
-
-    // Autonomous Skills (Red Bar)
-    case 4:
-      BarLift.spin(forward, 8.0, voltageUnits::volt);
-      wait(2.12, sec);
-
-      BarLift.stop();
-      ArmMotor.spin(forward, -9.0, voltageUnits::volt);
-      wait(54, sec);
-      ArmMotor.stop();
-      BarLift.setStopping(coast);
-      ArmMotor.setStopping(coast);
-
-      move("forward", def, 1.4);
-      PIDturn(-35.0);
-      move("forward", 100, 1.86);
-      PIDturn(33.0);
-      wings.set(true);
-      move("forward", def, 0.8);
-      break;
-
-    // AWP Blue
-    case 5:
-      wings.set(true);
+      move("reverse", def, 0.95);
       move("forward", def, 0.6);
-      PIDturn(10.0);
+      PIDturn(-40.0);
+      move("reverse", def, 1.0);
+      move("forward", def, 0.7);
+      PIDturn(-230.0);
+      break;
+
+    // Autonomous Skills
+    case 3:
+      BarLift.spin(forward, 12.0, voltageUnits::volt);
+      wait(1.2, sec);
+
+      BarLift.stop();
+      ArmMotor.spin(forward, -10.5, voltageUnits::volt);
+      wait(41, sec);
+      ArmMotor.stop();
+      BarLift.setStopping(coast);
+      ArmMotor.setStopping(coast);
+
+      move("forward", def, 1.4);
+      PIDturn(-35.0);
+      move("forward", 100, 1.86);
+      PIDturn(33.0);
+      wings.set(true);
+      move("forward", def, 0.9);
+      PIDturn(-38.0);
+      move("forward", def, 0.9);
+      move("reverse", def, 0.4);
+      move("forward", def, 0.5);
+      break;
+
+    // Opposite side Auton
+    case 4:
+      move("forward", def, 1.75);
+      PIDturn(90.0);
+      wings.set(true);
+      wait(750, msec);
+      move("forward", def, 0.45);
+      move("reverse", def, 0.45);
       wings.set(false);
+      PIDturn(270.0);
+      move("reverse", def, 0.7);
+      move("forward", def, 0.5);
+      wait(500, msec);
+      PIDturn(-180.0);
+      move("forward", def, 1.9);
+      PIDturn(-90.0);
+      move("forward", def, 1.55);
+      move("reverse", def, 1.2);
+      break;
+
+    // AWP
+    case 5:
+      move("forward", def, 1.75);
+      PIDturn(-90.0);
+      wings.set(true);
+      wait(750, msec);
       move("forward", def, 0.8);
-      PIDturn(35.0);
-      move("forward", def, 0.8);
-      move("reverse", def, 1.9);
-      /*PIDturn(150.0);
-      move("forward", def, 1.3);
-      PIDturn(130.0);
-      move("forward", def, 2);*/
+      move("reverse", def, 0.45);
+      wings.set(false);
+      PIDturn(-270.0);
+      move("forward", def, 0.1);
+      PIDturn(-180.0);
+      move("forward", def, 1.75);
+      PIDturn(-110.0);
+      move("forward", def, 1.0);
+      PIDturn(-215.0);
       break;
 
     // Testing
@@ -342,7 +350,7 @@ void usercontrol(void) {
     RRear.spin(reverse, forwardVolts + turnVolts, voltageUnits::volt);
 
     // Buttons
-    if (Controller1.ButtonR2.pressing()) {
+    if (Controller1.ButtonY.pressing()) {
       flipControls = !flipControls;
       wait(500, msec);
     }
@@ -351,9 +359,9 @@ void usercontrol(void) {
     ArmMotor.setVelocity(30, vex::percent);
 
     if (Controller1.ButtonL1.pressing()) {
-      ArmMotor.spin(forward, 10.0, voltageUnits::volt);
+      ArmMotor.spin(forward, 12.0, voltageUnits::volt);
     } else if (Controller1.ButtonL2.pressing()) {
-      ArmMotor.spin(forward, -10.0, voltageUnits::volt);
+      ArmMotor.spin(forward, -12.0, voltageUnits::volt);
     } else {
       ArmMotor.stop();
     }
@@ -361,16 +369,16 @@ void usercontrol(void) {
     // Bar Lift
     BarLift.setVelocity(60, vex::percent);
 
-    if (Controller1.ButtonX.pressing()) {
-      BarLift.spin(forward, 30.0, voltageUnits::volt);
-    } else if (Controller1.ButtonB.pressing()) {
-      BarLift.spin(forward, -30.0, voltageUnits::volt);
+    if (Controller1.ButtonR1.pressing()) {
+      BarLift.spin(forward, 12.0, voltageUnits::volt);
+    } else if (Controller1.ButtonR2.pressing()) {
+      BarLift.spin(forward, -12.0, voltageUnits::volt);
     } else {
       BarLift.stop();
     }
 
     // Pneumatics
-    if (Controller1.ButtonR1.pressing()) {
+    if (Controller1.ButtonX.pressing()) {
       if (wingsOn) {
         wings.set(true);
       } else {
