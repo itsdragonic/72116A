@@ -7,18 +7,27 @@
 #include "pros/rtos.h"
 #include "pros/rtos.hpp"
 
-
-
-// controller
+// Controller
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
 
-// motor groups
+// Motor groups
 pros::MotorGroup leftMotors({-11, 12, -13},
                             pros::MotorGearset::blue); // left motor group - ports 3 (reversed), 4, 5 (reversed)
 pros::MotorGroup rightMotors({-14,16, 17}, pros::MotorGearset::blue); // right motor group - ports 6, 7, 9 (reversed)
 
-// Inertial Sensor on port 10
+// Other Motors
+pros::Motor arm(8);
+pros::Motor conveyor(3);
+pros::Motor intake(9);
+
+// Pneumatics
+pros::ADIDigitalOut latch('B');
+pros::ADIDigitalOut colorSorter('A'); // LB
+pros::ADIDigitalOut flag('C'); // PTO
+
+// Sensors
 pros::Imu imu(21);
+pros::Optical optical(4);
 
 // tracking wheels
 // horizontal tracking wheel encoder. Rotation sensor, port 20, not reversed
@@ -142,7 +151,7 @@ ASSET(example_txt); // '.' replaced with "_" to make c++ happy
  */
 void autonomous() {
     chassis.setPose(0,0,0);
-    chassis.turnToHeading(90, 10000);
+    chassis.turnToHeading(180, 10000);
 }
 
 
