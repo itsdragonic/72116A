@@ -865,8 +865,8 @@ void autonomous() {
             //pros::delay(1000);
 
             chassis.setPose(0, 0, 0);
-            chassis.turnToHeading(90, 20000);
-            //chassis.moveToPose(0, 24, 0, 5000);
+            //chassis.turnToHeading(90, 20000);
+            chassis.moveToPose(0, 24, 0, 5000);
             //chassis.moveToPose(0, 12, 0, def, {.forwards = false, .minSpeed = 120});
             break;
         case 7:
