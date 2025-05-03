@@ -1,31 +1,32 @@
 #include "main.h"
 #include "lemlib/api.hpp"
+#include "pros/imu.hpp"
 #include "gif-pros/gifclass.hpp"
 
 // Controller
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
 
 // Drive motors
-pros::Motor lF(-14, pros::E_MOTOR_GEARSET_06); //
-pros::Motor lM(-12, pros::E_MOTOR_GEARSET_06); //
-pros::Motor lB(13, pros::E_MOTOR_GEARSET_06); //
-pros::Motor rF(5, pros::E_MOTOR_GEARSET_06); //
-pros::Motor rM(19, pros::E_MOTOR_GEARSET_06); //
-pros::Motor rB(-18, pros::E_MOTOR_GEARSET_06); //
+pros::Motor lF(12, pros::E_MOTOR_GEARSET_06); //
+pros::Motor lM(-13, pros::E_MOTOR_GEARSET_06); //
+pros::Motor lB(-11, pros::E_MOTOR_GEARSET_06); //
+pros::Motor rF(-14, pros::E_MOTOR_GEARSET_06); //
+pros::Motor rM(16, pros::E_MOTOR_GEARSET_06); //
+pros::Motor rB(17, pros::E_MOTOR_GEARSET_06); //
 
 // Motor groups
 pros::MotorGroup leftMotors({lF, lM, lB}); // left motor group
 pros::MotorGroup rightMotors({rF, rM, rB}); // right motor group
 
 // Other Motors
-pros::Motor arm(2, pros::E_MOTOR_GEARSET_36); // 5
-pros::Motor conveyor(7);
-pros::Motor intake(10);
+pros::Motor arm(-8, pros::E_MOTOR_GEARSET_36); // 5
+pros::Motor conveyor(3);
+pros::Motor intake(9);
 
 // Pneumatics
-pros::ADIDigitalOut latch('H');
-pros::ADIDigitalOut arm2('A');
-pros::ADIDigitalOut flag('E');
+pros::ADIDigitalOut latch('B');
+pros::ADIDigitalOut colorSorter('A'); // LB
+pros::ADIDigitalOut flag('C'); // PTO
 
 // Sensors
 pros::Imu imu(21);
@@ -34,55 +35,59 @@ pros::Optical optical(4);
 // Important Variables
 bool alliance = true; // true means blue, false means red
 int autonSide = 2; // 1 is positive, -1 is negative, 0 is skills
-int autonRoute = 9;
+int autonRoute = 6;
+
 bool colorSorting = true;
 bool activated = false;
+bool detectBlockage = false;
+bool touchLadder = false;
+bool primed = false;
 
 // Tracking Wheels
 
 // horizontal tracking wheel (pros::Rotation). 2.00" diameter, 4.5" offset, back of the robot (negative)
-pros::Rotation vertical1Enc(11, true);
-pros::Rotation vertical2Enc(20);
+pros::Rotation vertical1Enc(10, true);
+pros::Rotation vertical2Enc(1);
 pros::Rotation horizontalEnc(15);
 
-lemlib::TrackingWheel vertical1(&vertical1Enc, lemlib::Omniwheel::NEW_275, -7); // 6.875
-lemlib::TrackingWheel vertical2(&vertical2Enc, lemlib::Omniwheel::NEW_275, 7);
-lemlib::TrackingWheel horizontal(&horizontalEnc, 2, -4); // 4.5
+lemlib::TrackingWheel vertical1(&vertical1Enc, 2.125, -4.6); // 7
+lemlib::TrackingWheel vertical2(&vertical2Enc, 2.125, 4.6);
+lemlib::TrackingWheel horizontal(&horizontalEnc, 2.125, -5); // 4
 
 // drivetrain settings
 lemlib::Drivetrain drivetrain (
     &leftMotors, // left motor group
     &rightMotors, // right motor group
-    14, //track width
+    10.4, //track width
     lemlib::Omniwheel::NEW_275, // wheel diameter
     480, // drivetrain rpm
-    2 // chase power is 2. If there were traction wheels, it would be 8
+    8 // chase power is 2. If there are traction wheels, it should be 8
 );
 
 // lateral motion controller (1 tile = 23.8 Δx)
 lemlib::ControllerSettings linearController (
-    90, // proportional gain (kP) 500
+    8, // proportional gain (kP) 500
     0, // integral gain (kI) 0 
-    260, // derivative gain (kD) 100
+    150, // derivative gain (kD) 100
     3, // anti windup 3
     1, // small error range, in inches 1
-    50, // small error range timeout, in milliseconds 100
+    100, // small error range timeout, in milliseconds 100
     3, // large error range, in inches 3
-    100, // large error range timeout, in milliseconds 500
-    20 // maximum acceleration (slew) 5
+    500, // large error range timeout, in milliseconds 500
+    5 // maximum acceleration (slew) 5
 );
 
 // angular motion controller
 lemlib::ControllerSettings angularController (
-    2, // proportional gain (kP) 1
+    3, // proportional gain (kP) 2
     0, // integral gain (kI) 0 
-    14.25, // derivative gain (kD) 19
+    82, // derivative gain (kD) 14
     0, // anti windup 3
     0, // small error range, in degrees 1
     0, // small error range timeout, in milliseconds 100
-    0, // large error range, in degrees 3
+    8, // large error range, in degrees 3
     0, // large error range timeout, in milliseconds 500
-    0 // maximum acceleration (slew) 5
+    5 // maximum acceleration (slew) 5
 );
 
 // Sensors for odometry
@@ -186,7 +191,8 @@ static lv_res_t btn_click_action(lv_obj_t * btn)
     return LV_RES_OK;
 }
 
-int conveyorSpeed = 100;
+int maxSpeed = 120;
+int conveyorSpeed = maxSpeed;
 int speedUp = -700;
 int speedUp2 = 0;
 int spinConveyor = 0;
@@ -196,60 +202,110 @@ int counter = 0;
 
 void conveyorChecking() {
     while (true) {
-        conveyorSpeed = 100;
+        conveyorSpeed = maxSpeed;
+
+        // fix conveyor if stuck
+        if (detectBlockage && !primed) {
+            if (Clock > 0) {
+                Clock --;
+            } else {
+                Clock = 500;
+                counter = 0;
+            }
+
+            if (abs(conveyor.get_target_velocity()) > 0 && abs(conveyor.get_actual_velocity()) < 10) {
+                counter ++;
+            }
+
+            //controller.print(0,0, ": %8.2f", counter);
+
+            if (counter > 12) {
+                controller.rumble(".");
+                conveyor = -80;
+                pros::delay(500);
+                conveyor = 0;
+                Clock = 0;
+            }
+        }
 
         // Optical Sensing
         if (speedUp > -100) {
             speedUp --;
+        }
+
+        if (speedUp < 40 && speedUp > -40) {
+            if (detectBlockage) {
+                colorSorter.set_value(true);
+            }
         }
         if (speedUp < 0 && speedUp > -40) {
             conveyorSpeed = -100;
         }
         if (speedUp < -80) {
             activated = false;
+            if (detectBlockage) {
+                colorSorter.set_value(false);
+            }
         }
 
         if (speedUp2 > 0) {
             speedUp2 --;
-            conveyorSpeed = 127;
+            conveyorSpeed = maxSpeed;
         }
 
         optical.set_led_pwm(100);
         if (colorSorting && !activated && optical.get_saturation() > 0.2) {
             // color sorting
             if (alliance && ((optical.get_hue() > 345) || (optical.get_hue() < 15))) {
-                speedUp = 29;
+                speedUp = 17;
                 activated = true;
             }
             if (!alliance && ((optical.get_hue() > 210) && (optical.get_hue() < 230))) {
-                speedUp = 29;
+                speedUp = 17;
                 activated = true;
             }
             
             // speed up
-            if (!alliance && ((optical.get_hue() > 345) || (optical.get_hue() < 15))) {
-                speedUp2 = 30;
+            /*if (!alliance && ((optical.get_hue() > 345) || (optical.get_hue() < 15))) {
+                speedUp2 = 23;
             }
             if (alliance && ((optical.get_hue() > 210) && (optical.get_hue() < 230))) {
-                speedUp2 = 30;
-            }
+                speedUp2 = 23;
+            }*/
         }
 
         // Spin conveyor
         switch (spinConveyor) {
             case 1:
                 conveyor = conveyorSpeed;
+                intake = conveyorSpeed;
                 break;
             case -1:
                 conveyor = -conveyorSpeed;
+                intake = -conveyorSpeed;
                 break;
             case 0:
                 conveyor = 0;
+                intake = 0;
                 break;
         }
 
         pros::delay(10);
     }
+}
+
+static lv_res_t cb_release_action(lv_obj_t * cb)
+{
+    /*A check box is clicked*/
+    //printf("%s state: %d\n", lv_cb_get_text(cb), lv_cb_is_checked(cb));
+    //controller.print(0, 0, "%s - %d\n", lv_cb_get_text(cb), lv_cb_is_checked(cb));
+    if (lv_cb_is_checked(cb)) {
+        touchLadder = true;
+    } else {
+        touchLadder = false;
+    }
+
+    return LV_RES_OK;
 }
 
 // Initialize screen and everything else
@@ -396,6 +452,33 @@ void initialize() {
     lv_label_set_text(txtInfo, "null"); // sets label text
     lv_obj_align(txtInfo, NULL, LV_ALIGN_IN_TOP_LEFT, 10, 35); // set the position to center
 
+    /*Create  border style*/
+    static lv_style_t style_border;
+    lv_style_copy(&style_border, &lv_style_pretty_color);
+    style_border.glass = 1;
+    style_border.body.empty = 1;
+
+    /*Create a container*/
+    lv_obj_t * cont;
+    cont = lv_cont_create(tab2, NULL);
+    lv_cont_set_layout(cont, LV_LAYOUT_COL_L);      /*Arrange the children in a column*/
+    lv_cont_set_fit(cont, true, true);              /*Fit the size to the content*/
+    lv_obj_set_style(cont, &style_border);
+
+    /**************************
+     * Create check boxes
+     *************************/
+
+    //Create check box
+    lv_obj_t * cb;
+    cb = lv_cb_create(cont, NULL);
+    lv_cb_set_text(cb, "Touch Ladder");
+    lv_cb_set_action(cb, cb_release_action);
+
+    //Align the container to the middle
+    lv_obj_align(cont, NULL, LV_ALIGN_IN_LEFT_MID, -5, -40);
+
+
     // LemLib: thread to for brain screen and position logging
 
     pros::Task screenTask([&]() {
@@ -417,7 +500,7 @@ void initialize() {
             // print info
             char txtBuffer[200];
             sprintf(txtBuffer, "X: %.2f \nY: %.2f \nTheta: %.2f \nHue: %.2f \nSaturation: %.2f \nTemperature: %.1f°F "SYMBOL_WARNING,
-                    chassis.getPose().x, chassis.getPose().y, chassis.getPose().theta, optical.get_hue(), optical.get_saturation(), static_cast<double>(*maxElement)*9/5+32);
+                    chassis.getPose().x, chassis.getPose().y, chassis.getPose().theta, optical.get_hue(), arm.get_position(), static_cast<double>(*maxElement)*9/5+32);
 
 		    lv_label_set_text(txtInfo, txtBuffer);
 
@@ -440,29 +523,26 @@ void disabled() {}
  */
 void competition_initialize() {}
 
-// get a path used for pure pursuit (this needs to be put outside a function)
-ASSET(example1_txt); // '.' replaced with "_" to make c++ happy
-
-// acutally in use
-ASSET(path1_txt);
+// Pure Pursuit paths
+ASSET(path1_txt); // '.' replaced with "_" to make c++ happy
 ASSET(path2_txt);
 ASSET(path3_txt);
 ASSET(path4_txt);
 
 /**
  * Autonomous
- *
  */
 void autonomous() {
 
     //chassis.moveToPose(0, 20, 0, 5000);
     //chassis.turnToHeading(90, 1000, {.minSpeed = 100});
-    int def = 2000;
+    int def = 1500;
     int pickupTime = 2500;
+    detectBlockage = true;
 
     conveyor.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-    intake.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
     latch.set_value(false);
+    flag.set_value(true);
 
     // Determine corner
     if (autonSide == 0) { // auton skills
@@ -476,133 +556,317 @@ void autonomous() {
     switch (autonRoute) {
         // Blue, negative side
         case 1:
-            chassis.setPose(50, 35.8, 90);
-            chassis.moveToPose(22.4, 22.3, 60, 3000, {.forwards = false, .maxSpeed = 100});
-            chassis.waitUntilDone();
+            // alliance stake
+            //pros::delay(3000);
+            chassis.setPose(50, 11.2, 118);
+            chassis.moveToPose(69, 0, 120, 2000, {.maxSpeed = 47});
+            pros::delay(900);
+            arm = -120;
+            pros::delay(700);
+            arm = 120;
             pros::delay(500);
-            spinConveyor = -1;
-            pros::delay(100);
-            spinConveyor = 0;
+            arm = 0;
+            chassis.moveToPose(20, 25, 116, 2500, {.forwards = false, .maxSpeed = 80});
+            chassis.waitUntil(36);
             latch.set_value(true);
-            intake = 100;
-            pros::delay(500);
+            //pros::delay(50);
+            chassis.turnToHeading(0, def);
             spinConveyor = 1;
-            pros::delay(1000);
 
-            // grab rings
-            chassis.moveToPose(24.4, 41.9, 350, def);
-            pros::delay(3000);
-            chassis.moveToPose(9.4, 49.6, 270, def);
-            pros::delay(2500);
-            chassis.turnToHeading(230, def);
+            // grabs
+            chassis.moveToPose(24, 47, 4, def, {.earlyExitRange = 1});
+
+            if (touchLadder) {
+                chassis.moveToPose(24, 48, 4, def);
+                pros::delay(3500);
+                chassis.moveToPose(14, 0, 26, 2500, {.forwards = false});
+                chassis.waitUntilDone();
+                spinConveyor = 0;
+            } else {
+                chassis.turnToHeading(50, def);
+                chassis.moveToPose(64.5, 67, 35, def);
+                chassis.turnToHeading(40, def);
+                chassis.waitUntilDone();
+                
+                spinConveyor = 0;
+                leftMotors = 40;
+                rightMotors = 40;
+                pros::delay(500);
+                //leftMotors = 5;
+                //rightMotors = 5;
+                spinConveyor = 1;
+                pros::delay(500);
+
+                leftMotors = -40;
+                rightMotors = -40;
+                pros::delay(200);
+                leftMotors = 40;
+                rightMotors = 40;
+                pros::delay(400);
+                leftMotors = 5;
+                rightMotors = 5;
+
+                pros::delay(1000);
+                leftMotors = -40;
+                rightMotors = -40;
+                pros::delay(100);
+                leftMotors = 0;
+                rightMotors = 0;
+            }
             
             break;
 
         // Red, negative side
         case 2:
-            chassis.setPose(50, -35.8, 90);
-            chassis.moveToPose(22.4, -22.3, 120, 3000, {.forwards = false, .maxSpeed = 100});
-            chassis.waitUntilDone();
-            pros::delay(100);
-            spinConveyor = -1;
-            pros::delay(100);
-            spinConveyor = 0;
-            latch.set_value(true);
-            intake = 100;
+            // alliance stake
+            //pros::delay(3000);
+            chassis.setPose(-50, 11.2, 242);
+            chassis.moveToPose(-69, 0, 240, 2000, {.maxSpeed = 47});
+            pros::delay(900);
+            arm = -120;
+            pros::delay(700);
+            arm = 120;
             pros::delay(500);
+            arm = 0;
+            chassis.moveToPose(-20, 25, 244, 2500, {.forwards = false, .maxSpeed = 80});
+            chassis.waitUntil(36);
+            latch.set_value(true);
+            //pros::delay(50);
+            chassis.turnToHeading(0, def);
             spinConveyor = 1;
-            pros::delay(1000);
 
-            // grab rings
-            chassis.moveToPose(24.4, -41.9, 190, def);
-            pros::delay(3000);
-            chassis.moveToPose(9.4, -49.6, 270, def);
-            pros::delay(2500);
-            chassis.turnToHeading(300, def);
+            // grabs
+            chassis.moveToPose(-24, 47, 356, def, {.earlyExitRange = 1});
+
+            if (touchLadder) {
+                chassis.moveToPose(-24, 48, 356, def);
+                pros::delay(3500);
+                chassis.moveToPose(-14, 0, 334, 2500, {.forwards = false});
+                chassis.waitUntilDone();
+                spinConveyor = 0;
+            } else {
+                chassis.turnToHeading(310, def);
+                chassis.moveToPose(-64.5, 67, 325, def);
+                chassis.turnToHeading(320, def);
+                chassis.waitUntilDone();
+                
+                spinConveyor = 0;
+                leftMotors = 40;
+                rightMotors = 40;
+                pros::delay(500);
+                //leftMotors = 5;
+                //rightMotors = 5;
+                spinConveyor = 1;
+                pros::delay(500);
+
+                leftMotors = -40;
+                rightMotors = -40;
+                pros::delay(200);
+                leftMotors = 40;
+                rightMotors = 40;
+                pros::delay(400);
+                leftMotors = 5;
+                rightMotors = 5;
+
+                pros::delay(1000);
+                leftMotors = -40;
+                rightMotors = -40;
+                pros::delay(100);
+                leftMotors = 0;
+                rightMotors = 0;
+            }
             
             break;
         
         // Red, positive side
         case 3:
-            chassis.setPose(50, 35.8, 90);
-            chassis.moveToPose(22.4, 22.3, 60, 3000, {.forwards = false, .maxSpeed = 100});
-            chassis.waitUntilDone();
-            pros::delay(100);
-            spinConveyor = -1;
-            pros::delay(100);
-            spinConveyor = 0;
-            latch.set_value(true);
-            intake = 100;
-            pros::delay(500);
-            spinConveyor = 1;
+            // alliance stake
+            //pros::delay(3000);
+            chassis.setPose(-50, -11.2, 298);
+            chassis.moveToPose(-69, -2, 295, 2000, {.maxSpeed = 47});
             pros::delay(1000);
+            arm = -120;
+            pros::delay(600);
+            arm = 0;
+            pros::delay(500);
+            chassis.moveToPose(-20, -24, 296, 2500, {.forwards = false, .maxSpeed = 70});
+            chassis.waitUntil(36);
+            latch.set_value(true);
+            arm = 120;
+            pros::delay(1000);
+            arm = 0;
+            chassis.turnToHeading(180, def);
+            spinConveyor = 1;
 
-            // grab ring & touch ladder
-            chassis.moveToPose(24.4, 41.9, 350, def);
-            pros::delay(3000);
-            spinConveyor = 0;
-            intake = 0;
-            chassis.turnToHeading(170, def);
-            chassis.moveToPose(17.7, 1.8, 190, def);
+            // grabs
+            chassis.moveToPose(-24, -45, 184, def, {.earlyExitRange = 1});
+
+            if (touchLadder) {
+                pros::delay(1000);
+                chassis.moveToPose(-24, -47, 184, def);
+                pros::delay(2000);
+                chassis.moveToPose(-16, 2, 206, 2500, {.forwards = false});
+                chassis.waitUntilDone();
+                spinConveyor = 0;
+            } else {
+                pros::delay(1000);
+                chassis.moveToPose(-24, -47, 184, def);
+                pros::delay(1500);
+                chassis.turnToHeading(70, def);
+                chassis.moveToPose(-50, -54, 80, def, {.forwards = false});
+                latch.set_value(false);
+                spinConveyor = 0;
+                pros::delay(100);
+
+                chassis.moveToPose(-8, -42, 90, def);
+                chassis.turnToHeading(270, def);
+            }
             
             break;
 
         // Blue, positive side
         case 4:
-            chassis.setPose(50, -35.8, 90);
-            chassis.moveToPose(22.4, -22.3, 120, 3000, {.forwards = false, .maxSpeed = 100});
-            chassis.waitUntilDone();
-            pros::delay(100);
-            spinConveyor = -1;
-            pros::delay(100);
-            spinConveyor = 0;
-            latch.set_value(true);
-            intake = 100;
-            pros::delay(500);
-            spinConveyor = 1;
+            // alliance stake
+            //pros::delay(3000);
+            chassis.setPose(50, -11.2, 62);
+            chassis.moveToPose(69, -2, 65, 2000, {.maxSpeed = 47});
             pros::delay(1000);
+            arm = -120;
+            pros::delay(600);
+            arm = 0;
+            pros::delay(500);
+            chassis.moveToPose(20, -24, 64, 2500, {.forwards = false, .maxSpeed = 70});
+            chassis.waitUntil(36);
+            latch.set_value(true);
+            arm = 120;
+            pros::delay(1000);
+            arm = 0;
+            chassis.turnToHeading(180, def);
+            spinConveyor = 1;
 
-            // grab ring & touch ladder
-            chassis.moveToPose(24.4, -41.9, 190, def);
-            pros::delay(3000);
-            intake = 0;
-            spinConveyor = 0;
-            chassis.turnToHeading(10, def);
-            chassis.moveToPose(17.7, -1.8, 350, def);
+            // grabs
+            chassis.moveToPose(24, -45, 176, def, {.earlyExitRange = 1});
+            pros::delay(3500);
+
+            if (touchLadder) {
+                chassis.moveToPose(24, -47, 176, def);
+                chassis.moveToPose(16, 2, 154, 2500, {.forwards = false});
+                chassis.waitUntilDone();
+                spinConveyor = 0;
+            } else {
+                chassis.turnToHeading(290, def);
+                chassis.moveToPose(48, -54, 280, def, {.forwards = false});
+                latch.set_value(false);
+                spinConveyor = 0;
+                pros::delay(100);
+
+                chassis.moveToPose(8, -44, 270, def);
+                chassis.turnToHeading(90, def);
+            }
             
             break;
 
         // Auton Skills
         case 5:
+            def = 2000;
+            chassis.setPose(-60.7, 0, 270);
+            arm = -120;
+            pros::delay(600);
+            arm = 120;
+            pros::delay(400);
+            arm = 0;
+            chassis.moveToPose(-50, -23, 0, 2500, {.forwards = false});
+            chassis.waitUntilDone();
+            latch.set_value(true);
+            pros::delay(500);
+            spinConveyor = 1;
+
+            // Red Pos Corner
+            chassis.moveToPose(-23.8, -23.65, 90, def);
+            chassis.turnToHeading(130, 500);
+            chassis.moveToPose(-10, -40, 140, def, {.earlyExitRange = 5});
+            chassis.moveToPose(0, -64, 180, 2000);
+            pros::delay(200);
+            chassis.turnToHeading(273, def);
+
+            chassis.moveToPose(-24, -49, 270, def);
+            chassis.turnToHeading(270, 500);
+            chassis.moveToPose(-41, -51, 270, 2000, {.maxSpeed = 70, .earlyExitRange = 5});
+            chassis.moveToPose(-60, -51, 270, 2000, {.maxSpeed = 45});
+            
+            chassis.moveToPose(-61, -35, 0, def);
+            chassis.moveToPose(-68, -73, 0, 2000, {.forwards = false});
+            chassis.turnToHeading(45, def);
+            latch.set_value(false);
+            pros::delay(200);
+            spinConveyor = 0;
+            //chassis.setPose(-58, -58, 35);
+
+            // Red Neg Corner
+            chassis.moveToPose(-53, -8, 0, 3000);
+            chassis.turnToHeading(180, def);
+            chassis.moveToPose(-46, 20, 180, 3000, {.forwards = false, .maxSpeed = 70});
+            chassis.waitUntil(27);
+            latch.set_value(true);
+            pros::delay(100);
+            
+            chassis.turnToHeading(0, def);
+            spinConveyor = 1;
+            chassis.moveToPose(-53, 60, 0, 3000, {.maxSpeed = 50});
+            chassis.turnToHeading(90, def);
+            chassis.moveToPose(-68, 60, 90, 3000, {.forwards = false});
+            chassis.turnToHeading(135, def);
+            chassis.waitUntilDone();
+            spinConveyor = 0;
+            latch.set_value(false);
+            
+            /*chassis.turnToHeading(90, def);
+
+            spinConveyor = 1;
+            chassis.moveToPose(-23, 20, 90, def);
+            pros::delay(800);
+            
+
+
+            chassis.moveToPose(-47, 47, 135, 3500, {.forwards = false, .maxSpeed = 70, .earlyExitRange = 5});
+            chassis.moveToPose(-71, 67, 135, 3500, {.forwards = false, .maxSpeed = 70});
+            chassis.waitUntilDone();
+            latch.set_value(false);*/
+            
+            /* Old layout
+            
             chassis.setPose(-62, -11.5, 90);
-            chassis.follow(path1_txt, 5, 7000);
+            chassis.follow(path1_txt, 5, 6000);
             chassis.waitUntilDone();
 
             chassis.moveToPose(-53, -51, 212, def, {.forwards = false});
             chassis.turnToHeading(90, def);
-            chassis.follow(path2_txt, 5, 13000);
+            chassis.follow(path2_txt, 5, 12000);
             chassis.waitUntilDone();
 
-            chassis.moveToPose(56, -54, 133, def, {.forwards = false});
+            chassis.moveToPose(54, -51, 133, def, {.forwards = false});
             chassis.turnToHeading(0, def);
-            chassis.follow(path3_txt, 5, 14000);
+            chassis.follow(path3_txt, 5, 11000);
             chassis.waitUntilDone();
 
-            chassis.moveToPose(52, 50, 42, def, {.forwards = false});
+            chassis.moveToPose(56, 55, 42, 1000, {.forwards = false});
+            //chassis.moveToPose(66, 66, 42, 1000, {.minSpeed = 127});
             chassis.turnToHeading(270, def);
-            chassis.follow(path4_txt, 5, 30000);
+            chassis.follow(path4_txt, 5, 10000);
             chassis.waitUntilDone();
+
+            chassis.turnToHeading(270, def);*/
             break;
 
         // Testing
         case 6:
             //latch.set_value(true);
-            //intake = -100;
             //conveyor = 120;
-            pros::delay(1000);
+            //pros::delay(1000);
 
             chassis.setPose(0, 0, 0);
-            chassis.moveToPose(0, 24, 0, def);
+            chassis.turnToHeading(90, 20000);
+            //chassis.moveToPose(0, 24, 0, 5000);
             //chassis.moveToPose(0, 12, 0, def, {.forwards = false, .minSpeed = 120});
             break;
         case 7:
@@ -633,7 +897,6 @@ void autonomous() {
             pros::delay(1000);
             latch.set_value(true);
             spinConveyor = 1;
-            intake = 100;
             break;
     }
 }
@@ -647,13 +910,16 @@ bool toggle2 = false;
 bool toggle3 = true;
 bool toggle4 = false;
 bool toggle5 = false;
+bool toggle6 = false;
 
 void opcontrol() {
     // set up
+    detectBlockage = false;
     latch.set_value(true);
-    arm2.set_value(false);
+    flag.set_value(true);
+
     conveyor.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-    intake.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+    arm.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
 
     while (true) {
         // get joystick positions
@@ -669,16 +935,78 @@ void opcontrol() {
             latch.set_value(true);
         }
 
-        // Arm
-        if (controller.get_digital_new_press(DIGITAL_L1)) {
-            arm2.set_value(!toggle4);    // When false go to true and in reverse
-            toggle4 = !toggle4;    // Flip the toggle to match piston state
-        }
-
         // Flag
-        if (controller.get_digital_new_press(DIGITAL_Y)) {
+        if (controller.get_digital_new_press(DIGITAL_L1)) {
             flag.set_value(!toggle5);    // When false go to true and in reverse
             toggle5 = !toggle5;    // Flip the toggle to match piston state
+        }
+
+        // Primer
+
+        /*if (controller.get_digital_new_press(DIGITAL_LEFT)) {
+            primed = !primed;
+            arm.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+
+            if (primed) {
+                //int desired_position = -310;
+                //arm.move_absolute(desired_position, 40); // Moves 100 units forward
+                //while (!((arm.get_position() < desired_position+5) && (arm.get_position() > desired_position-5))) {
+                //    pros::delay(2);
+                //}
+                //arm = -50;
+                //pros::delay(500);
+            } else {
+                arm = 50;
+                pros::delay(500);
+                arm = 0;
+            }
+            
+        }
+        if (primed) {
+            arm = -5;
+        }*/
+
+        // Lady Brown
+        if (controller.get_digital(DIGITAL_LEFT)) {
+            primed = true;
+            arm.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+            arm = -40;
+        } else if (controller.get_digital(DIGITAL_DOWN)) {
+            primed = false;
+            arm.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+            arm = 40;
+        } else {
+            if (primed) {
+                arm = -5;
+            } else {
+                arm = 0;
+            }
+        }
+        if (controller.get_digital_new_press(DIGITAL_UP)) {
+            primed = false;
+            arm.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+
+            spinConveyor = -1;
+            arm = -120;
+            pros::delay(350);
+            spinConveyor = 0;
+            arm = 0;
+            //arm = 80;
+            //pros::delay(300);
+        }
+        if (controller.get_digital_new_press(DIGITAL_RIGHT)) {
+            primed = false;
+            arm.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+
+            arm = 120;
+            pros::delay(200);
+            arm = 0;
+        }
+
+        // Elevation Mech
+        if (controller.get_digital_new_press(DIGITAL_A)) {
+            colorSorter.set_value(!toggle6);
+            toggle6 = !toggle6;
         }
 
         // Disable color sorting (inactive)
@@ -696,37 +1024,20 @@ void opcontrol() {
         // Conveyor motor (max is ±127)
         if (controller.get_digital(DIGITAL_R1)) {
             spinConveyor = -1;
-            intake = -100;
         } else if (controller.get_digital(DIGITAL_R2)) {
             spinConveyor = 1;
-            intake = 100;
-        }
-
-        // wall stake helper
-        if (controller.get_digital_new_press(DIGITAL_DOWN)) {
-            controller.rumble("-");
-            chassis.setPose(0, 0, 0);
-            chassis.moveToPose(0, 1, 0, 3000);
-            chassis.waitUntilDone();
-            arm2.set_value(true);
-            pros::delay(2000);
-            conveyor = 115;
-            pros::delay(2000);
-            arm2.set_value(false);
         }
 
         // intake & conveyor toggle
-        if (controller.get_digital_new_press(DIGITAL_RIGHT)) {
+        if (controller.get_digital_new_press(DIGITAL_Y)) {
             toggle2 = !toggle2;
         }
         if (toggle2) {
-            intake = 100;
             spinConveyor = 1;
         }
 
         if (!toggle2 && !controller.get_digital(DIGITAL_R1) && !controller.get_digital(DIGITAL_R2)) {
             spinConveyor = 0;
-            intake = 0;
         }
         
         pros::delay(10);

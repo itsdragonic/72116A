@@ -368,9 +368,9 @@
       }
     },
     "upload_options": {
-      "after": "run",
+      "after": "screen",
       "description": "Catholic High School For Boys",
-      "icon": "pizza",
+      "icon": "X",
       "slot": 1
     },
     "use_early_access": false
