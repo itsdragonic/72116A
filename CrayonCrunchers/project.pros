@@ -1,7 +1,7 @@
 {
   "py/object": "pros.conductor.project.Project",
   "py/state": {
-    "project_name": "mahfouz",
+    "project_name": "CrayonCrunchers",
     "target": "v5",
     "templates": {
       "LemLib": {
@@ -299,8 +299,9 @@
     },
     "upload_options": {
       "slot": 1,
-      "icon": "ufo",
-      "after": "screen"
+      "icon": "X",
+      "after": "screen",
+      "description": "72116A"
     },
     "use_early_access": false
   }
