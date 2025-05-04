@@ -76,6 +76,8 @@ namespace lcd {
     extern __attribute__((weak)) bool initialize(void);
     extern __attribute__((weak)) std::uint8_t read_buttons(void);
     extern __attribute__((weak)) void register_btn1_cb(lcd_btn_cb_fn_t cb);
+    extern __attribute__((weak)) void register_btn0_cb(lcd_btn_cb_fn_t cb); /* was originally missing */
+    extern __attribute__((weak)) void register_btn2_cb(lcd_btn_cb_fn_t cb);
     extern __attribute__((weak)) bool is_initialized(void);
 
     /**

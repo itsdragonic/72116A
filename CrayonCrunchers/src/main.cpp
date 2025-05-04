@@ -30,13 +30,14 @@ pros::Imu imu(21);
 pros::Optical optical(4);
 
 // Important Variables
-bool alliance = true; // true means blue, false means red
+bool alliance = false; // true means blue, false means red
 int autonSide = 2; // 1 is positive, -1 is negative, 0 is skills
 int autonRoute = 6;
 
 bool colorSorting = true;
 bool activated = false;
 bool detectBlockage = false;
+bool allianceStake = true;
 bool touchLadder = false;
 bool primed = false;
 
@@ -73,9 +74,9 @@ lemlib::ControllerSettings linearController(10, // proportional gain (kP)
 );
 
 // angular motion controller
-lemlib::ControllerSettings angularController(5, // proportional gain (kP)
+lemlib::ControllerSettings angularController(4, // proportional gain (kP)
                                              0, // integral gain (kI)
-                                            30, // derivative gain (kD)
+                                            50, // derivative gain (kD)
                                              0, // anti windup
                                              0, // small error range, in degrees
                                              0, // small error range timeout, in milliseconds
@@ -208,23 +209,61 @@ lemlib::Chassis chassis(drivetrain, linearController, angularController, sensors
          pros::delay(10);
      }
  }
+
+ const std::string autonBlurbs[8] = {
+    "Blue, negative side",      // Auton 1
+    "Red, negative side",       // Auton 2
+    "Red, positive side",       // Auton 3
+    "Blue, positive side",      // Auton 4
+    "Auton Skills",             // Auton 5
+    "Test 1",                   // Auton 6
+    "Test 2",                   // Auton 7
+    "Test 3"                    // Auton 8
+};
  
-void on_center_button() {
-    static bool pressed = false;
-    pressed = !pressed;
-    if (pressed) {
-        pros::lcd::set_text(2, "I was pressed!");
+void on_left_button() {
+    alliance = !alliance;
+    if (alliance) {
+        pros::lcd::set_text(3, "Blue Team Selected");
     } else {
-        pros::lcd::clear_line(2);
+        pros::lcd::set_text(3, "Red Team Selected");
     }
+}
+
+void on_center_button() {
+    autonRoute = (autonRoute % 8) + 1;
+
+    std::string blurb = autonBlurbs[autonRoute - 1];
+
+    pros::lcd::set_text(4, "Auton " + std::to_string(autonRoute) + " Selected (" + blurb + ")");
+}
+
+int configIndex = 0;
+void on_right_button() {
+    configIndex = (configIndex + 1) % 4;
+
+    // Update booleans based on configIndex
+    allianceStake = configIndex & 0b10; // Bit 1
+    touchLadder = configIndex & 0b01;   // Bit 0
+
+    pros::lcd::print(5, "Get Alliance Stake: %s", allianceStake ? "true" : "false");
+    pros::lcd::print(6, "Touch Ladder: %s", touchLadder ? "true" : "false");
 }
 
 void initialize() {
     pros::lcd::initialize(); // initialize brain screen
     chassis.calibrate(); // calibrate sensors
+    pros::delay(3000);
 
     pros::Task conveyor_task(conveyorChecking);
-    pros::lcd::register_btn1_cb(on_center_button);
+
+    pros::lcd::register_btn0_cb(on_left_button); // alliance color
+    pros::lcd::register_btn1_cb(on_center_button); // auton path
+    pros::lcd::register_btn2_cb(on_right_button); // alliance stake & ladder
+    pros::lcd::print(3, "Red Team Selected");
+    pros::lcd::print(4, "Auton [Default] Selected");
+    pros::lcd::print(5, "Get Alliance Stake: true");
+    pros::lcd::print(6, "Touch Ladder: false");
 
     // the default rate is 50. however, if you need to change the rate, you
     // can do the following.
@@ -238,9 +277,10 @@ void initialize() {
     pros::Task screenTask([&]() {
         while (true) {
             // print robot location to the brain screen
-            pros::lcd::print(0, "X: %f", chassis.getPose().x); // x
-            pros::lcd::print(1, "Y: %f", chassis.getPose().y); // y
-            pros::lcd::print(2, "Theta: %f", chassis.getPose().theta); // heading
+            pros::lcd::print(0, "X: %.3f", chassis.getPose().x); // x
+            pros::lcd::print(1, "Y: %.3f", chassis.getPose().y); // y
+            pros::lcd::print(2, "Theta: %.3f", chassis.getPose().theta); // heading
+
             // log position telemetry
             lemlib::telemetrySink()->info("Chassis pose: {}", chassis.getPose());
             // delay to save resources
@@ -598,8 +638,9 @@ void autonomous() {
             //pros::delay(1000);
 
             chassis.setPose(0, 0, 0);
-            //chassis.turnToHeading(90, 20000);
-            chassis.moveToPose(0, 24, 0, 5000);
+            chassis.turnToHeading(90, 20000);
+            //chassis.moveToPose(0, 5, 0, 5000);
+            
             //chassis.moveToPose(0, 12, 0, def, {.forwards = false, .minSpeed = 120});
             break;
         case 7:
