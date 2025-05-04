@@ -76,12 +76,12 @@ lemlib::ControllerSettings linearController(10, // proportional gain (kP)
 // angular motion controller
 lemlib::ControllerSettings angularController(4, // proportional gain (kP)
                                              0, // integral gain (kI)
-                                            50, // derivative gain (kD)
-                                             0, // anti windup
-                                             0, // small error range, in degrees
-                                             0, // small error range timeout, in milliseconds
-                                             0, // large error range, in degrees
-                                             0, // large error range timeout, in milliseconds
+                                            74, // derivative gain (kD)
+                                             3, // anti windup
+                                             1, // small error range, in degrees
+                                             100, // small error range timeout, in milliseconds
+                                             3, // large error range, in degrees
+                                             400, // large error range timeout, in milliseconds
                                              5 // maximum acceleration (slew)
 );
 
@@ -638,9 +638,9 @@ void autonomous() {
             //pros::delay(1000);
 
             chassis.setPose(0, 0, 0);
-            chassis.turnToHeading(90, 20000);
-            //chassis.moveToPose(0, 5, 0, 5000);
-            
+            //chassis.turnToHeading(90, 20000);
+            chassis.moveToPose(0, 5, 0, 5000);
+
             //chassis.moveToPose(0, 12, 0, def, {.forwards = false, .minSpeed = 120});
             break;
         case 7:
