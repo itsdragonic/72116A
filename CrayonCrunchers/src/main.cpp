@@ -11,9 +11,8 @@
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
 
 // Motor groups
-pros::MotorGroup leftMotors({-11, 12, -13},
-                            pros::MotorGearset::blue); // left motor group - ports 3 (reversed), 4, 5 (reversed)
-pros::MotorGroup rightMotors({-14,16, 17}, pros::MotorGearset::blue); // right motor group - ports 6, 7, 9 (reversed)
+pros::MotorGroup leftMotors({12, -11, -13}, pros::MotorGearset::blue); // 12 -11 -13
+pros::MotorGroup rightMotors({-14, 16, 17}, pros::MotorGearset::blue); // -14 16 17
 
 // Other Motors
 pros::Motor arm(8);
@@ -86,9 +85,9 @@ lemlib::ControllerSettings angularController(4, // proportional gain (kP)
 );
 
 // sensors for odometry
-lemlib::OdomSensors sensors(&vertical1, // vertical tracking wheel
-                            &vertical2, // vertical tracking wheel 2, set to nullptr as we don't have a second one
-                            &horizontal, // horizontal tracking wheel
+lemlib::OdomSensors sensors(nullptr, // vertical tracking wheel
+                            nullptr, // vertical tracking wheel 2, set to nullptr as we don't have a second one
+                            nullptr, // horizontal tracking wheel
                             nullptr, // horizontal tracking wheel 2, set to nullptr as we don't have a second one
                             &imu // inertial sensor
 );
@@ -638,8 +637,8 @@ void autonomous() {
             //pros::delay(1000);
 
             chassis.setPose(0, 0, 0);
-            //chassis.turnToHeading(90, 20000);
-            chassis.moveToPose(0, 5, 0, 5000);
+            chassis.turnToHeading(180, 20000);
+            //chassis.moveToPose(0, 10, 0, 5000);
 
             //chassis.moveToPose(0, 12, 0, def, {.forwards = false, .minSpeed = 120});
             break;
