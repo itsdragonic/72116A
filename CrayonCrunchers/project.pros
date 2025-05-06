@@ -299,7 +299,7 @@
     },
     "upload_options": {
       "slot": 1,
-      "icon": "X",
+      "icon": "planet",
       "after": "run",
       "description": "72116A"
     },

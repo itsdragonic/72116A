@@ -29,22 +29,22 @@ pros::Imu imu(21);
 pros::Optical optical(4);
 
 // Important Variables
-bool alliance = false; // true means blue, false means red
+bool alliance = true; // true means blue, false means red
 int autonSide = 2; // 1 is positive, -1 is negative, 0 is skills
-int autonRoute = 6;
+int autonRoute = 1;
 
 bool colorSorting = true;
 bool activated = false;
 bool detectBlockage = false;
 bool allianceStake = true;
-bool touchLadder = false;
+bool touchLadder = true;
 bool primed = false;
 
 // Tracking wheels
 
 pros::Rotation horizontalEnc(15);
-pros::Rotation verticalEnc1(-10);
-pros::Rotation verticalEnc2(1);
+pros::Rotation verticalEnc1(10);
+pros::Rotation verticalEnc2(-1);
 
 // 2.75" diameter, 5.75" offset, back of the robot (negative)
 lemlib::TrackingWheel horizontal(&horizontalEnc, lemlib::Omniwheel::NEW_2, -5);
@@ -61,9 +61,9 @@ lemlib::Drivetrain drivetrain(&leftMotors, // left motor group
 );
 
 // lateral motion controller
-lemlib::ControllerSettings linearController(10, // proportional gain (kP)
-                                            0, // integral gain (kI)
-                                            3, // derivative gain (kD)
+lemlib::ControllerSettings linearController(8, // proportional gain (kP) 10
+                                            0, // integral gain (kI) 0
+                                            40, // derivative gain (kD) 3
                                             3, // anti windup
                                             1, // small error range, in inches
                                             100, // small error range timeout, in milliseconds
@@ -73,21 +73,21 @@ lemlib::ControllerSettings linearController(10, // proportional gain (kP)
 );
 
 // angular motion controller
-lemlib::ControllerSettings angularController(4, // proportional gain (kP)
-                                             0, // integral gain (kI)
-                                            74, // derivative gain (kD)
+lemlib::ControllerSettings angularController(2, // proportional gain (kP) 4
+                                             0, // integral gain (kI) 0
+                                             14, // derivative gain (kD) 74
                                              3, // anti windup
                                              1, // small error range, in degrees
                                              100, // small error range timeout, in milliseconds
                                              3, // large error range, in degrees
-                                             400, // large error range timeout, in milliseconds
+                                             500, // large error range timeout, in milliseconds
                                              5 // maximum acceleration (slew)
 );
 
 // sensors for odometry
-lemlib::OdomSensors sensors(nullptr, // vertical tracking wheel
+lemlib::OdomSensors sensors(&vertical1, // vertical tracking wheel
                             nullptr, // vertical tracking wheel 2, set to nullptr as we don't have a second one
-                            nullptr, // horizontal tracking wheel
+                            &horizontal, // horizontal tracking wheel
                             nullptr, // horizontal tracking wheel 2, set to nullptr as we don't have a second one
                             &imu // inertial sensor
 );
@@ -330,28 +330,28 @@ void autonomous() {
         case 1:
             // alliance stake
             //pros::delay(3000);
-            chassis.setPose(50, 11.2, 118);
-            chassis.moveToPose(69, 0, 120, 2000, {.maxSpeed = 47});
+            chassis.setPose(50, 9.7, 117);
+            chassis.moveToPose(64, 3, 119, 2000, {.maxSpeed = 35});
             pros::delay(900);
-            arm.move(-120);
-            pros::delay(700);
             arm.move(120);
-            pros::delay(500);
+            pros::delay(700);
+            arm.move(-120);
+            pros::delay(900);
             arm.move(0);
-            chassis.moveToPose(20, 25, 116, 2500, {.forwards = false, .maxSpeed = 80});
+            chassis.moveToPose(20, 25, 116, 2500, {.forwards = false, .maxSpeed = 75});
             chassis.waitUntil(36);
             latch.set_value(true);
             //pros::delay(50);
-            chassis.turnToHeading(0, def);
+            chassis.turnToHeading(5, def);
             spinConveyor = 1;
 
             // grabs
-            chassis.moveToPose(24, 47, 4, def, {.earlyExitRange = 1});
+            chassis.moveToPose(25, 49, 0, def, {.earlyExitRange = 1});
 
             if (touchLadder) {
-                chassis.moveToPose(24, 48, 4, def);
-                pros::delay(3500);
-                chassis.moveToPose(14, 0, 26, 2500, {.forwards = false});
+                //chassis.moveToPose(24, 48, 4, def);
+                pros::delay(2500);
+                //chassis.moveToPose(22.4, 5, 353, 2500, {.forwards = false});
                 chassis.waitUntilDone();
                 spinConveyor = 0;
             } else {
@@ -395,9 +395,9 @@ void autonomous() {
             chassis.setPose(-50, 11.2, 242);
             chassis.moveToPose(-69, 0, 240, 2000, {.maxSpeed = 47});
             pros::delay(900);
-            arm.move(-120);
-            pros::delay(700);
             arm.move(120);
+            pros::delay(700);
+            arm.move(-120);
             pros::delay(500);
             arm.move(0);
             chassis.moveToPose(-20, 25, 244, 2500, {.forwards = false, .maxSpeed = 80});
@@ -637,8 +637,8 @@ void autonomous() {
             //pros::delay(1000);
 
             chassis.setPose(0, 0, 0);
-            chassis.turnToHeading(180, 20000);
-            //chassis.moveToPose(0, 10, 0, 5000);
+            //chassis.turnToHeading(180, 20000);
+            chassis.moveToPose(0, 24, 0, 5000);
 
             //chassis.moveToPose(0, 12, 0, def, {.forwards = false, .minSpeed = 120});
             break;
