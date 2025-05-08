@@ -31,7 +31,7 @@ pros::Optical optical(4);
 // Important Variables
 bool alliance = true; // true means blue, false means red
 int autonSide = 2; // 1 is positive, -1 is negative, 0 is skills
-int autonRoute = 1;
+int autonRoute = 4;
 
 bool colorSorting = true;
 bool activated = false;
@@ -509,10 +509,10 @@ void autonomous() {
             elevation.set_value(true);
             chassis.setPose(54, -10.4, 90);
             arm.move(7);
-            chassis.turnToHeading(60, def);
-            chassis.moveToPose(64, -3, 60, 2000, {.maxSpeed = 35});
+            chassis.turnToHeading(54, def);
+            chassis.moveToPose(68, -4, 54, 2000, {.maxSpeed = 45});
             chassis.waitUntilDone();
-            pros::delay(500);
+            pros::delay(300);
 
             arm.move(120);
             pros::delay(700);
@@ -529,11 +529,11 @@ void autonomous() {
             spinConveyor = 1;
 
             // grabs
-            chassis.moveToPose(34, -54, 180, 2000);
+            chassis.moveToPose(14, -48, 180, 2000);
 
             if (touchLadder) {
                 pros::delay(2500);
-                chassis.moveToPose(22.4, -5, 187, 2500, {.forwards = false});
+                chassis.moveToPose(6, 2, 175, 2500, {.forwards = false});
                 chassis.waitUntil(15);
                 spinConveyor = 0;
             } else {
