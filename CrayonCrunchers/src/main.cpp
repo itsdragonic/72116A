@@ -320,9 +320,9 @@ void autonomous() {
     if (autonSide == 0) { // auton skills
         autonRoute = 5;
     } else if (autonSide == 1) { // positive corner
-        autonRoute = (alliance ? 4 : 3); // left number is blue side, right is red side
+        autonRoute = (alliance ? 4 : 1); // left number is blue side, right is red side (4,3)
     } else if (autonSide == -1) { // negative corner
-        autonRoute = (alliance ? 1 : 2); // left number is blue side, right is red side
+        autonRoute = (alliance ? 1 : 4); // left number is blue side, right is red side (1,2)
     }
 
     switch (autonRoute) {
@@ -330,29 +330,36 @@ void autonomous() {
         case 1:
             // alliance stake
             //pros::delay(3000);
-            chassis.setPose(50, 9.7, 117);
-            chassis.moveToPose(64, 3, 119, 2000, {.maxSpeed = 35});
-            pros::delay(900);
+            elevation.set_value(true);
+            chassis.setPose(54, 10.4, 90);
+            arm.move(7);
+            chassis.turnToHeading(120, def);
+            chassis.moveToPose(64, 3, 120, 2000, {.maxSpeed = 35});
+            chassis.waitUntilDone();
+            pros::delay(500);
+
             arm.move(120);
             pros::delay(700);
-            arm.move(-120);
-            pros::delay(900);
             arm.move(0);
-            chassis.moveToPose(20, 25, 116, 2500, {.forwards = false, .maxSpeed = 75});
-            chassis.waitUntil(36);
+            pros::delay(200);
+            arm.move(-120);
+            pros::delay(700);
+            arm.move(0);
+            chassis.moveToPose(20, 25, 116, 3000, {.forwards = false, .maxSpeed = 75});
+            chassis.waitUntil(38);
             latch.set_value(true);
             //pros::delay(50);
             chassis.turnToHeading(5, def);
             spinConveyor = 1;
 
             // grabs
-            chassis.moveToPose(25, 49, 0, def, {.earlyExitRange = 1});
+            chassis.moveToPose(34, 54, 0, 2000);
 
             if (touchLadder) {
                 //chassis.moveToPose(24, 48, 4, def);
                 pros::delay(2500);
-                //chassis.moveToPose(22.4, 5, 353, 2500, {.forwards = false});
-                chassis.waitUntilDone();
+                chassis.moveToPose(22.4, 5, 353, 2500, {.forwards = false});
+                chassis.waitUntil(15);
                 spinConveyor = 0;
             } else {
                 chassis.turnToHeading(50, def);
@@ -498,32 +505,36 @@ void autonomous() {
 
         // Blue, positive side
         case 4:
-            // alliance stake
-            //pros::delay(3000);
-            chassis.setPose(50, -11.2, 62);
-            chassis.moveToPose(69, -2, 65, 2000, {.maxSpeed = 47});
-            pros::delay(1000);
-            arm.move(-120);
-            pros::delay(600);
-            arm.move(0);
+            // 180deg-x
+            elevation.set_value(true);
+            chassis.setPose(54, -10.4, 90);
+            arm.move(7);
+            chassis.turnToHeading(60, def);
+            chassis.moveToPose(64, -3, 60, 2000, {.maxSpeed = 35});
+            chassis.waitUntilDone();
             pros::delay(500);
-            chassis.moveToPose(20, -24, 64, 2500, {.forwards = false, .maxSpeed = 70});
-            chassis.waitUntil(36);
-            latch.set_value(true);
+
             arm.move(120);
-            pros::delay(1000);
+            pros::delay(700);
             arm.move(0);
-            chassis.turnToHeading(180, def);
+            pros::delay(200);
+            arm.move(-120);
+            pros::delay(700);
+            arm.move(0);
+            chassis.moveToPose(20, -25, 64, 3000, {.forwards = false, .maxSpeed = 75});
+            chassis.waitUntil(38);
+            latch.set_value(true);
+            //pros::delay(50);
+            chassis.turnToHeading(175, def);
             spinConveyor = 1;
 
             // grabs
-            chassis.moveToPose(24, -45, 176, def, {.earlyExitRange = 1});
-            pros::delay(3500);
+            chassis.moveToPose(34, -54, 180, 2000);
 
             if (touchLadder) {
-                chassis.moveToPose(24, -47, 176, def);
-                chassis.moveToPose(16, 2, 154, 2500, {.forwards = false});
-                chassis.waitUntilDone();
+                pros::delay(2500);
+                chassis.moveToPose(22.4, -5, 187, 2500, {.forwards = false});
+                chassis.waitUntil(15);
                 spinConveyor = 0;
             } else {
                 chassis.turnToHeading(290, def);
