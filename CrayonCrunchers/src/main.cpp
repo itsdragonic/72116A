@@ -239,14 +239,17 @@ void on_center_button() {
 
 int configIndex = 0;
 void on_right_button() {
-    configIndex = (configIndex + 1) % 4;
+    /*configIndex = (configIndex + 1) % 4;
 
     // Update booleans based on configIndex
     allianceStake = configIndex & 0b10; // Bit 1
     touchLadder = configIndex & 0b01;   // Bit 0
 
     pros::lcd::print(5, "Get Alliance Stake: %s", allianceStake ? "true" : "false");
-    pros::lcd::print(6, "Touch Ladder: %s", touchLadder ? "true" : "false");
+    pros::lcd::print(6, "Touch Ladder: %s", touchLadder ? "true" : "false");*/
+
+    allianceStake = !allianceStake;
+    pros::lcd::print(5, "Alliance Stake: %s", allianceStake ? "true" : "false");
 }
 
 void initialize() {
@@ -261,8 +264,8 @@ void initialize() {
     pros::lcd::register_btn2_cb(on_right_button); // alliance stake & ladder
     pros::lcd::print(3, "Red Team Selected");
     pros::lcd::print(4, "Auton [Default] Selected");
-    pros::lcd::print(5, "Get Alliance Stake: true");
-    pros::lcd::print(6, "Touch Ladder: false");
+    pros::lcd::print(5, "Alliance Stake: true");
+    //pros::lcd::print(6, "Touch Ladder: false");
 
     // the default rate is 50. however, if you need to change the rate, you
     // can do the following.
@@ -332,19 +335,22 @@ void autonomous() {
             //pros::delay(3000);
             elevation.set_value(true);
             chassis.setPose(54, 10.4, 90);
-            arm.move(7);
-            chassis.turnToHeading(120, def);
-            chassis.moveToPose(64, 3, 120, 2000, {.maxSpeed = 35});
-            chassis.waitUntilDone();
-            pros::delay(500);
+            if (allianceStake) {
+                arm.move(7);
+                chassis.turnToHeading(120, def);
+                chassis.moveToPose(64, 3, 120, 2000, {.maxSpeed = 35});
+                chassis.waitUntilDone();
+                pros::delay(500);
 
-            arm.move(120);
-            pros::delay(700);
-            arm.move(0);
-            pros::delay(200);
-            arm.move(-120);
-            pros::delay(700);
-            arm.move(0);
+                arm.move(120);
+                pros::delay(700);
+                arm.move(0);
+                pros::delay(200);
+                arm.move(-120);
+                pros::delay(700);
+                arm.move(0);
+            }
+            
             chassis.moveToPose(20, 25, 116, 3000, {.forwards = false, .maxSpeed = 75});
             chassis.waitUntil(38);
             latch.set_value(true);
@@ -508,19 +514,21 @@ void autonomous() {
             // 180deg-x
             elevation.set_value(true);
             chassis.setPose(54, -10.4, 90);
-            arm.move(7);
-            chassis.turnToHeading(54, def);
-            chassis.moveToPose(68, -4, 54, 2000, {.maxSpeed = 45});
-            chassis.waitUntilDone();
-            pros::delay(300);
+            if (allianceStake) {
+                arm.move(7);
+                chassis.turnToHeading(54, def);
+                chassis.moveToPose(68, -4, 54, 2000, {.maxSpeed = 45});
+                chassis.waitUntilDone();
+                pros::delay(300);
 
-            arm.move(120);
-            pros::delay(700);
-            arm.move(0);
-            pros::delay(200);
-            arm.move(-120);
-            pros::delay(700);
-            arm.move(0);
+                arm.move(120);
+                pros::delay(700);
+                arm.move(0);
+                pros::delay(200);
+                arm.move(-120);
+                pros::delay(700);
+                arm.move(0);
+            }
             chassis.moveToPose(20, -25, 64, 3000, {.forwards = false, .maxSpeed = 75});
             chassis.waitUntil(38);
             latch.set_value(true);
@@ -761,7 +769,7 @@ void opcontrol() {
             arm.move(-50);
         } else {
             if (primed) {
-                arm.move(-5);
+                arm.move(5);
             } else {
                 arm.move(0);
             }
@@ -772,7 +780,7 @@ void opcontrol() {
 
             spinConveyor = -1;
             arm.move(120);
-            pros::delay(350);
+            pros::delay(600);
             spinConveyor = 0;
             arm.move(0);
             //arm = 80;
@@ -783,7 +791,7 @@ void opcontrol() {
             arm.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
 
             arm.move(-120);
-            pros::delay(200);
+            pros::delay(400);
             arm.move(0);
         }
 
