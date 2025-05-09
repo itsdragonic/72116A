@@ -29,9 +29,9 @@ pros::Imu imu(21);
 pros::Optical optical(4);
 
 // Important Variables
-bool alliance = true; // true means blue, false means red
+bool alliance = false; // true means blue, false means red
 int autonSide = 2; // 1 is positive, -1 is negative, 0 is skills
-int autonRoute = 4;
+int autonRoute = 5;
 
 bool colorSorting = true;
 bool activated = false;
@@ -230,11 +230,20 @@ void on_left_button() {
 }
 
 void on_center_button() {
-    autonRoute = (autonRoute % 8) + 1;
+    /*autonRoute = (autonRoute % 8) + 1;
 
     std::string blurb = autonBlurbs[autonRoute - 1];
 
-    pros::lcd::set_text(4, "Auton " + std::to_string(autonRoute) + " Selected (" + blurb + ")");
+    pros::lcd::set_text(4, "Auton " + std::to_string(autonRoute) + " Selected (" + blurb + ")");*/
+
+    if (autonSide == 1) {
+        autonSide = -1;
+        pros::lcd::set_text(4, "Negative Corner");
+    } else {
+        autonSide = 1;
+        pros::lcd::set_text(4, "Positive Corner");
+    }
+
 }
 
 int configIndex = 0;
@@ -263,7 +272,7 @@ void initialize() {
     pros::lcd::register_btn1_cb(on_center_button); // auton path
     pros::lcd::register_btn2_cb(on_right_button); // alliance stake & ladder
     pros::lcd::print(3, "Red Team Selected");
-    pros::lcd::print(4, "Auton [Default] Selected");
+    pros::lcd::print(4, "No Side Selected");
     pros::lcd::print(5, "Alliance Stake: true");
     //pros::lcd::print(6, "Touch Ladder: false");
 
