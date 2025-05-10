@@ -346,8 +346,8 @@ void autonomous() {
             chassis.setPose(54, 10.4, 90);
             if (allianceStake) {
                 arm.move(7);
-                chassis.turnToHeading(120, def);
-                chassis.moveToPose(64, 3, 120, 2000, {.maxSpeed = 35});
+                chassis.turnToHeading(130, def);
+                chassis.moveToPose(64, 3, 130, 2000, {.maxSpeed = 35});
                 chassis.waitUntilDone();
                 pros::delay(500);
 
@@ -525,8 +525,8 @@ void autonomous() {
             chassis.setPose(54, -10.4, 90);
             if (allianceStake) {
                 arm.move(7);
-                chassis.turnToHeading(54, def);
-                chassis.moveToPose(68, -4, 54, 2000, {.maxSpeed = 45});
+                chassis.turnToHeading(50, def);
+                chassis.moveToPose(71, -1, 50, 2000, {.maxSpeed = 45});
                 chassis.waitUntilDone();
                 pros::delay(300);
 
@@ -570,10 +570,10 @@ void autonomous() {
         case 5:
             def = 2000;
             chassis.setPose(-60.7, 0, 270);
-            arm.move(-120);
-            pros::delay(600);
             arm.move(120);
-            pros::delay(400);
+            pros::delay(850);
+            arm.move(-120);
+            pros::delay(500);
             arm.move(0);
             chassis.moveToPose(-50, -23, 0, 2500, {.forwards = false});
             chassis.waitUntilDone();
