@@ -575,7 +575,7 @@ void autonomous() {
             arm.move(-120);
             pros::delay(500);
             arm.move(0);
-            chassis.moveToPose(-50, -23, 0, 2500, {.forwards = false});
+            chassis.moveToPose(-47, -17, 0, 2500, {.forwards = false});
             chassis.waitUntilDone();
             latch.set_value(true);
             pros::delay(500);
@@ -585,7 +585,7 @@ void autonomous() {
             chassis.moveToPose(-23.8, -23.65, 90, def);
             chassis.turnToHeading(130, 500);
             chassis.moveToPose(-10, -40, 140, def, {.earlyExitRange = 5});
-            chassis.moveToPose(0, -64, 180, 2000);
+            chassis.moveToPose(0, -63, 180, 2000);
             pros::delay(200);
             chassis.turnToHeading(273, def);
 
